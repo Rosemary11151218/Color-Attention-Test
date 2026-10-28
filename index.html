@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>斯特鲁普注意力测试 (正向计时版)</title>
+    <style>
+        /* 基础样式 */
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;
+            background-color: #f4f5f9;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            color: #333;
+        }
+        .game-container {
+            background-color: #fff;
+            width: 90%;
+            max-width: 600px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.05);
+            padding: 30px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* 顶部信息栏 */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        .info-box {
+            background-color: #f8f9fa;
+            border-radius: 8px;
+            padding: 10px 15px;
+            font-size: 14px;
+            color: #666;
+            flex: 1;
+            text-align: center;
+        }
+        .info-box:not(:last-child) { margin-right: 10px; }
+        .info-box .highlight { font-weight: bold; font-size: 18px; margin-left: 5px; }
+        .score-color { color: #4a86e8; }
+        .remain-color { color: #8e44ad; }
+        .time-color { color: #00bcd4; }
+
+        /* 进度条 */
+        .progress-bar {
+            width: 100%; height: 6px;
+            background-color: #e0e0e0;
+            border-radius: 3px;
+            margin-bottom: 40px;
+            overflow: hidden;
+        }
+        .progress-fill {
+            height: 100%;
+            background-color: #4a86e8;
+            width: 0%;
+            transition: width 0.2s ease;
+        }
+
+        /* 标题区 */
+        .title-area { text-align: center; margin-bottom: 40px; }
+        .main-title { font-size: 28px; font-weight: bold; margin-bottom: 10px; color: #2c3e50; }
+        .sub-title { font-size: 14px; color: #666; }
+
+        /* 核心测试区 */
+        .test-area {
+            height: 150px;
+            display: flex; justify-content: center; align-items: center;
+            background-color: #fff;
+            border-top: 1px solid #eee; border-bottom: 1px solid #eee;
+            position: relative;
+            margin-bottom: 30px;
+        }
+        .test-text { font-size: 80px; font-weight: bold; user-select: none; }
+        .next-btn {
+            position: absolute; right: 15px; top: 50%; transform: translateY(-50%);
+            background: #ddd; border: none; width: 30px; height: 30px;
+            border-radius: 50%; color: #fff; cursor: pointer; font-size: 12px;
+        }
+
+        /* 底部按钮区 */
+        .buttons-area { display: flex; justify-content: space-evenly; padding: 10px 0; }
+        .color-btn {
+            width: 60px; height: 60px; border-radius: 50%;
+            border: none; cursor: pointer; transition: transform 0.1s, box-shadow 0.2s;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        .color-btn:active { transform: scale(0.9); box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
+
+        /* 结果页面 & 弹窗 */
+        .modal {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: #fff; /* 结果页面背景设为纯白以匹配设计 */
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 10;
+            text-align: center;
+        }
+        .modal.active { display: flex; }
+        
+        .result-star { color: #4a86e8; font-size: 24px; margin-bottom: 10px; }
+        .result-title { font-size: 32px; font-weight: bold; color: #333; margin-bottom: 20px; }
+        .result-subtitle { font-size: 16px; color: #666; margin-bottom: 10px; }
+        .final-score { font-size: 64px; font-weight: bold; color: #4a86e8; margin-bottom: 30px; }
+        
+        .eval-text { font-size: 18px; color: #333; margin-bottom: 10px; line-height: 1.5; }
+        .time-text { font-size: 16px; color: #666; margin-bottom: 40px; }
+        
+        .restart-btn {
+            padding: 12px 30px;
+            background: #4a86e8; color: white; border: none;
+            border-radius: 25px; font-size: 16px; cursor: pointer;
+            box-shadow: 0 4px 10px rgba(74, 134, 232, 0.3);
+        }
+        .restart-btn:hover { background: #3574c6; }
+
+        /* 响应式微调 */
+        @media (max-width: 480px) {
+            .color-btn { width: 45px; height: 45px; }
+            .test-text { font-size: 60px; }
+            .final-score { font-size: 50px; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="game-container">
+    <!-- 顶部信息栏 -->
+    <div class="header">
+        <div class="info-box">得分: <span class="highlight score-color" id="score">0</span></div>
+        <div class="info-box">剩余: <span class="highlight remain-color" id="remain">20</span></div>
+        <div class="info-box">时间: <span class="highlight time-color" id="time">0.0s</span></div>
+    </div>
+
+    <!-- 进度条 -->
+    <div class="progress-bar">
+        <div class="progress-fill" id="progress"></div>
+    </div>
+
+    <!-- 标题 -->
+    <div class="title-area">
+        <div class="main-title">斯特鲁普注意力测试</div>
+        <div class="sub-title">点击文字<span style="color: #e74c3c;">实际显示的颜色</span>，而不是文字本身的含义</div>
+    </div>
+
+    <!-- 测试区 -->
+    <div class="test-area">
+        <div class="test-text" id="test-text">红</div>
+        <button class="next-btn" onclick="nextQuestion()">></button>
+    </div>
+
+    <!-- 底部选项按钮 -->
+    <div class="buttons-area" id="buttons-container">
+        <!-- 按钮由JS动态生成 -->
+    </div>
+
+    <!-- 结果页面 (默认隐藏) -->
+    <div class="modal" id="end-modal">
+        <div class="result-star">★</div>
+        <div class="result-title">测试完成!</div>
+        <div class="result-subtitle">你的得分:</div>
+        <div class="final-score" id="final-score-display">0</div>
+        <div class="eval-text" id="eval-text-display">非常好！你的注意力和认知控制能力很强。</div>
+        <div class="time-text" id="time-text-display">完成时间：0.0秒</div>
+        <button class="restart-btn" onclick="initGame()">重新开始</button>
+    </div>
+</div>
+
+<script>
+    // 1. 定义颜色和文字的数据
+    const colorData = [
+        { name: '红', color: '#e74c3c' },
+        { name: '橙', color: '#f39c12' },
+        { name: '绿', color: '#2ecc71' },
+        { name: '蓝', color: '#3498db' },
+        { name: '紫', color: '#9b59b6' }
+    ];
+
+    // 2. 游戏状态变量
+    let score = 0;
+    const totalQuestions = 20; // 设置总题数，以便计算时间
+    let currentQuestionIndex = 0;
+    let timeUsed = 0;
+    let timerInterval;
+    let currentCorrectColorCode = '';
+    let isGameActive = false;
+
+    // DOM 元素获取
+    const scoreEl = document.getElementById('score');
+    const remainEl = document.getElementById('remain');
+    const timeEl = document.getElementById('time');
+    const progressEl = document.getElementById('progress');
+    const testTextEl = document.getElementById('test-text');
+    const buttonsContainer = document.getElementById('buttons-container');
+    const modalEl = document.getElementById('end-modal');
+    
+    // 结果页面 DOM
+    const finalScoreDisplay = document.getElementById('final-score-display');
+    const evalTextDisplay = document.getElementById('eval-text-display');
+    const timeTextDisplay = document.getElementById('time-text-display');
+
+    // 3. 初始化游戏
+    function initGame() {
+        score = 0;
+        currentQuestionIndex = 0;
+        timeUsed = 0;
+        isGameActive = true;
+        modalEl.classList.remove('active'); // 隐藏结果页面
+        updateUI();
+        startTimer();
+        nextQuestion();
+    }
+
+    // 4. 渲染底部颜色按钮
+    function renderButtons() {
+        buttonsContainer.innerHTML = '';
+        colorData.forEach(item => {
+            const btn = document.createElement('button');
+            btn.className = 'color-btn';
+            btn.style.backgroundColor = item.color;
+            btn.onclick = () => handleAnswer(item.color);
+            buttonsContainer.appendChild(btn);
+        });
+    }
+
+    // 5. 生成下一道题目
+    function nextQuestion() {
+        if (!isGameActive) return;
+
+        if (currentQuestionIndex >= totalQuestions) {
+            endGame();
+            return;
+        }
+
+        const textItem = colorData[Math.floor(Math.random() * colorData.length)];
+        const colorItem = colorData[Math.floor(Math.random() * colorData.length)];
+
+        testTextEl.textContent = textItem.name;
+        testTextEl.style.color = colorItem.color;
+        currentCorrectColorCode = colorItem.color;
+
+        updateUI();
+    }
+
+    // 6. 处理用户点击答案
+    function handleAnswer(selectedColorCode) {
+        if (!isGameActive) return;
+
+        if (selectedColorCode === currentCorrectColorCode) {
+            score++;
+        }
+        currentQuestionIndex++;
+        nextQuestion();
+    }
+
+    // 7. 更新界面 UI
+    function updateUI() {
+        scoreEl.textContent = score;
+        remainEl.textContent = totalQuestions - currentQuestionIndex;
+        const progressPercent = (currentQuestionIndex / totalQuestions) * 100;
+        progressEl.style.width = `${progressPercent}%`;
+    }
+
+    // 8. 正向计时逻辑
+    function startTimer() {
+        clearInterval(timerInterval);
+        timerInterval = setInterval(() => {
+            timeUsed += 0.1;
+            timeEl.textContent = timeUsed.toFixed(1) + 's';
+        }, 100);
+    }
+
+    // 9. 游戏结束 & 显示结果页面
+    function endGame() {
+        clearInterval(timerInterval);
+        isGameActive = false;
+        
+        finalScoreDisplay.textContent = score;
+        timeTextDisplay.textContent = `完成时间：${timeUsed.toFixed(1)}秒`;
+        
+        // 根据分数生成评价
+        let evalText = "还需要继续努力哦！";
+        if (score >= 18) {
+            evalText = "非常好！你的注意力和认知控制能力很强。";
+        } else if (score >= 14) {
+            evalText = "不错！你的注意力水平高于常人。";
+        } else if (score >= 10) {
+            evalText = "良好，继续保持！";
+        }
+        evalTextDisplay.textContent = evalText;
+
+        modalEl.classList.add('active'); // 显示结果页面
+    }
+
+    // 页面加载完成后初始化按钮
+    renderButtons();
+    // 自动开始第一局（或者可以加一个开始按钮）
+    initGame(); 
+
+</script>
+</body>
+</html>
